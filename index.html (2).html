@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schaak Rooms + Contact</title>
+
+<style>
+body { font-family: Arial, sans-serif; background: #f0f2f5; margin:0; padding:0; }
+header { background: #333; color:white; padding:15px; text-align:center; }
+main { display:flex; justify-content:center; padding:20px; flex-wrap:wrap; gap:20px; }
+
+.card { background:white; padding:20px; border-radius:10px; width:400px; }
+input, button, textarea { padding:8px; margin:5px 0; width:100%; }
+button { cursor:pointer; }
+#rooms { margin-top:10px; }
+.room { padding:8px; background:#eee; margin-bottom:5px; cursor:pointer; border-radius:5px; }
+.room:hover { background:#ddd; }
+#chessboard { display:grid; grid-template-columns: repeat(8, 1fr); margin-top:15px; }
+.square { width:45px; height:45px; display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer; }
+.white { background:#eee; }
+.black { background:#666; color:white; }
+.selected { outline:3px solid red; }
+.hidden { display:none; }
+.turn { margin-top:10px; font-weight:bold; }
+.error { color:#d9534f; font-size:14px; margin-bottom:8px; }
+.error-field { border:2px solid #d9534f; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>Schaak Website – Rooms + Contact</h1>
+</header>
+
+<main>
+
+<!-- LOBBY -->
+<div class="card" id="lobby">
+<h2>Lobby</h2>
+<input type="text" id="roomName" placeholder="Room naam">
+<button onclick="createRoom()">Maak room</button>
+<h3>Beschikbare rooms</h3>
+<div id="rooms"></div>
+</div>
+
+<!-- GAME -->
+<div class="card hidden" id="game">
+<h2 id="roomTitle"></h2>
+<div class="turn" id="turnInfo"></div>
+<div id="chessboard"></div>
+<button onclick="leaveRoom()">Verlaat room</button>
+</div>
+
+<!-- CONTACT -->
+<div class="card" id="contactForm">
+<h2>Contact</h2>
+<form novalidate>
+<label>Naam</label><br>
+<input type="text" id="name">
+<div class="error" id="nameError"></div>
+<label>Email</label><br>
+<input type="email" id="email">
+<div class="error" id="emailError"></div>
+<label>Bericht</label><br>
+<textarea id="message"></textarea>
+<div class="error" id="messageError"></div>
+<button type="submit">Verstuur</button>
+<div class="turn" id="formResult"></div>
+</form>
+</div>
+
+</main>
+
+<script>
+// ROOMS
+let rooms = JSON.parse(localStorage.getItem('chessRooms')) || [];
+let currentRoom = null;
+function saveRooms(){ localStorage.setItem('chessRooms', JSON.stringify(rooms)); }
+function createRoom(){ const name=document.getElementById('roomName').value.trim(); if(!name)return alert('Voer roomnaam in'); rooms.push({name}); saveRooms(); loadRooms(); }
+function loadRooms(){ const container=document.getElementById('rooms'); container.innerHTML=''; rooms.forEach((r,i)=>{ const div=document.createElement('div'); div.className='room'; div.innerText=r.name; div.onclick=()=>joinRoom(i); container.appendChild(div); }); }
+function joinRoom(i){ currentRoom=rooms[i]; document.getElementById('lobby').classList.add('hidden'); document.getElementById('game').classList.remove('hidden'); document.getElementById('roomTitle').innerText=currentRoom.name; startGame(); }
+function leaveRoom(){ document.getElementById('game').classList.add('hidden'); document.getElementById('lobby').classList.remove('hidden'); }
+loadRooms();
+
+// SCHAAK
+const boardEl=document.getElementById('chessboard');
+let board=[],selected=null,turn='white';
+const pieces={r:'♜',n:'♞',b:'♝',q:'♛',k:'♚',p:'♟',R:'♖',N:'♘',B:'♗',Q:'♕',K:'♔',P:'♙'};
+function startGame(){ board=[ ['r','n','b','q','k','b','n','r'], ['p','p','p','p','p','p','p','p'], ['','','','','','','',''], ['','','','','','','',''], ['','','','','','','',''], ['','','','','','','',''], ['P','P','P','P','P','P','P','P'], ['R','N','B','Q','K','B','N','R'] ]; turn='white'; selected=null; renderBoard(); }
+function renderBoard(){ boardEl.innerHTML=''; document.getElementById('turnInfo').innerText='Beurt: '+(turn==='white'?'Wit':'Zwart'); for(let y=0;y<8;y++){ for(let x=0;x<8;x++){ const square=document.createElement('div'); square.className='square '+((x+y)%2?'black':'white'); square.dataset.x=x;square.dataset.y=y;square.innerText=pieces[board[y][x]]||''; square.onclick=()=>clickSquare(x,y,square); boardEl.appendChild(square);}}}
+function clickSquare(x,y,el){ const piece=board[y][x]; if(selected){ movePiece(selected.x,selected.y,x,y); selected=null; renderBoard(); return;} if(!piece) return; if(turn==='white'&&piece===piece.toUpperCase() || turn==='black'&&piece===piece.toLowerCase()){ selected={x,y}; el.classList.add('selected'); }}
+function movePiece(x1,y1,x2,y2){ board[y2][x2]=board[y1][x1]; board[y1][x1]=''; turn=turn==='white'?'black':'white'; }
+
+// CONTACT
+const form=document.querySelector('#contactForm form');
+const nameInput=document.getElementById('name');
+const emailInput=document.getElementById('email');
+const messageInput=document.getElementById('message');
+const nameError=document.getElementById('nameError');
+const emailError=document.getElementById('emailError');
+const messageError=document.getElementById('messageError');
+const formResult=document.getElementById('formResult');
+function showError(input,errEl,msg){ input.classList.add('error-field'); errEl.innerText=msg; }
+function clearError(input,errEl){ input.classList.remove('error-field'); errEl.innerText=''; }
+form.addEventListener('submit',e=>{ e.preventDefault(); let valid=true;
+if(nameInput.value.trim().length<2){ showError(nameInput,nameError,'Naam minimaal 2 tekens'); valid=false;} else clearError(nameInput,nameError);
+const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if(!emailPattern.test(emailInput.value)){ showError(emailInput,emailError,'Geldig email'); valid=false;} else clearError(emailInput,emailError);
+if(messageInput.value.trim().length<10){ showError(messageInput,messageError,'Bericht minimaal 10 tekens'); valid=false;} else clearError(messageInput,messageError);
+if(valid){ formResult.style.color='green'; formResult.innerText='Bericht verzonden! (demo)'; form.reset(); }});
+</script>
+
+</body>
+</html>
